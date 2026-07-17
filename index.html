@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>賢い消費者家計簿（中学生向け）</title>
+  <!-- Chart.jsの読み込み -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <style>
+    /* --- 基本スタイル --- */
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f0f2f5;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .phone-screen {
+      width: 360px;
+      height: 640px;
+      background: white;
+      border-radius: 30px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+    .app-section {
+      display: none; 
+      padding: 20px;
+      flex: 1;
+      overflow-y: auto;
+    }
+    .active { display: block; }
+    
+    h2 { text-align: center; color: #333; margin-top: 10px; }
+    label { font-weight: bold; font-size: 14px; color: #495057; display: block; margin-top: 10px; }
+    input[type="text"], input[type="number"], input[type="password"] {
+      width: 90%;
+      padding: 10px;
+      font-size: 16px;
+      margin-top: 5px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+    button:active { transform: scale(0.97); }
+    .btn-primary { background: #4dabf7; color: white; }
+    .btn-secondary { background: #e9ecef; color: #495057; }
+    .btn-danger { background: #fa5252; color: white; }
+    
+    /* --- アカウント作成画面 --- */
+    .hobby-checkboxes {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 10px 0;
+    }
+    .hobby-label {
+      background: #f1f3f5;
+      padding: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: normal;
+    }
+
+    /* --- カレンダー画面 --- */
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+      margin-top: 15px;
+    }
+    .calendar-day-name { text-align: center; font-size: 12px; font-weight: bold; color: #868e96; }
+    .calendar-day {
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      background: #f8f9fa;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .bg-needs { background-color: #d0ebff !important; color: #1c7ed6; font-weight: bold; } 
+    .bg-wants { background-color: #ffe3e3 !important; color: #e03131; font-weight: bold; } 
+    .bg-both  { background-color: #eebefa !important; color: #ae3ec9; font-weight: bold; } 
+
+    /* --- 入力画面 --- */
+    .type-selectors, .nw-selectors { display: flex; gap: 10px; margin-top: 5px; }
+    .type-btn, .nw-btn { flex: 1; background: #e9ecef; color: #495057; }
+    .type-btn.selected { background: #339af0; color: white; }
+    .nw-btn.selected[data-val="Needs"] { background: #228be6; color: white; }
+    .nw-btn.selected[data-val="Wants"] { background: #fa5252; color: white; }
+    
+    .hobby-pool {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .tag-btn { background: #f1f3f5; font-size: 14px; padding: 10px; margin: 0; }
+    .tag-btn.selected { background: #fab005; color: white; }
+    
+    /* --- ゲームUI & ポップアップ --- */
+    .status-card {
+      background: linear-gradient(135deg, #e7f5ff, #d0ebff);
+      padding: 15px;
+      border-radius: 16px;
+      margin-bottom: 15px;
+    }
+    .level-badge {
+      display: inline-block;
+      background: #228be6;
+      color: white;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 13px;
+    }
+    .title-badge { font-weight: bold; color: #1c7ed6; font-size: 15px; margin-left: 8px; }
+    .xp-bar-container { background: #e9ecef; height: 10px; border-radius: 5px; margin-top: 8px; overflow: hidden; }
+    .xp-bar-fill { background: linear-gradient(90deg, #4dabf7, #339af0); height: 100%; width: 0%; transition: width 0.8s ease; }
+
+    .levelup-overlay {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.7);
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .levelup-overlay.show { opacity: 1; pointer-events: auto; }
+    .levelup-card { background: white; width: 280px; padding: 30px 20px; border-radius: 24px; text-align: center; }
+    .sparkle { position: absolute; width: 8px; height: 8px; border-radius: 50%; opacity: 0; }
+
+    /* 管理者画面用 */
+    .admin-user-card {
+      background: #f1f3f5;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 15px;
+      border-left: 5px solid #228be6;
+      position: relative;
+    }
+
+    /* フッターナビ */
+    .nav-bar {
+      height: 60px;
+      border-top: 1px solid #dee2e6;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      background: #f8f9fa;
+    }
+    .nav-item { cursor: pointer; font-size: 16px; font-weight: bold; color: #495057; }
+    .nav-item.active-nav { color: #339af0; }
+  </style>
+</head>
+<body>
+
+<div class="phone-screen">
+
+  <!-- レベルアップ時の演出用 -->
+  <div id="levelup-overlay" class="levelup-overlay" onclick="closeLevelUp()">
+    <div class="levelup-card">
+      <h3 style="font-size: 28px; color: #fab005; margin: 10px 0;">LEVEL UP!!</h3>
+      <p id="levelup-text" style="font-size: 16px; font-weight: bold; margin: 10px 0; color: #333;"></p>
+      <p id="levelup-title-text" style="font-size: 14px; color: #228be6; font-weight: bold; margin: 0;"></p>
+      <button class="btn-primary" style="margin-top: 20px;" onclick="closeLevelUp()">次へ</button>
+    </div>
+  </div>
+
+  <!-- 0. ログイン画面 -->
+  <div id="sec-login" class="app-section active">
+    <h2 style="margin-top: 50px;">賢い消費者家計簿</h2>
+    <p style="text-align: center; color: #868e96; font-size: 14px;">ログインして始めよう</p>
+    
+    <label>ユーザーネーム</label>
+    <input type="text" id="login-username" placeholder="ユーザーネーム">
+    
+    <label>パスワード</label>
+    <input type="password" id="login-password" placeholder="パスワード">
+    
+    <button class="btn-primary" style="margin-top: 30px;" onclick="login()">ログイン</button>
+    <button class="btn-secondary" onclick="goToRegisterStep1()">新しくアカウントを作る</button>
+  </div>
+
+  <!-- 1-1. アカウント作成画面（ステップ1：プロフィール） -->
+  <div id="sec-account-step1" class="app-section">
+    <h2>プロフィール登録 (1/2)</h2>
+    
+    <label>名前</label>
+    <input type="text" id="acc-name" placeholder="例：たかし">
+    
+    <label>年齢</label>
+    <input type="number" id="acc-age" placeholder="例：14" oninput="calculateBirthYear()">
+    
+    <label>生年月日 (誕生年)</label>
+    <input type="text" id="acc-birthyear-display" placeholder="自動計算されます" readonly style="background-color: #e9ecef;">
+    
+    <label>今持っている金額 (円)</label>
+    <input type="number" id="acc-balance" placeholder="例：3000">
+
+    <label>君の趣味 (複数選んでね)</label>
+    <div class="hobby-checkboxes">
+      <label class="hobby-label"><input type="checkbox" class="hobby-cb" value="ゲーム" checked> [ゲーム・課金]</label>
+      <label class="hobby-label"><input type="checkbox" class="hobby-cb" value="マンガ・アニメ"> [マンガ・アニメ]</label>
+      <label class="hobby-label"><input type="checkbox" class="hobby-cb" value="推し活・アイドル"> [推し活・アイドル]</label>
+      <label class="hobby-label"><input type="checkbox" class="hobby-cb" value="買い食い・お菓子"> [買い食い・お菓子]</label>
+      <label class="hobby-label"><input type="checkbox" class="hobby-cb" value="ファッション"> [ファッション・コスメ]</label>
+    </div>
+    
+    <button class="btn-primary" onclick="goToRegisterStep2()">次へ進む</button>
+    <button class="btn-secondary" onclick="switchSection('login')">戻る</button>
+  </div>
+
+  <!-- 1-2. アカウント作成画面（ステップ2：パスワード） -->
+  <div id="sec-account-step2" class="app-section">
+    <h2>ログイン設定 (2/2)</h2>
+    <p style="font-size: 13px; color: #868e96; text-align: center;">次回からログインするときに使います</p>
+    
+    <label>ユーザーネーム</label>
+    <input type="text" id="acc-username" placeholder="例：takashi123">
+    
+    <label>パスワード</label>
+    <input type="password" id="acc-password" placeholder="パスワードを入力">
+    
+    <button class="btn-primary" style="margin-top: 30px;" onclick="registerAccount()">アカウントを作成して完了！</button>
+    <button class="btn-secondary" onclick="switchSection('account-step1')">戻る</button>
+  </div>
+
+  <!-- 2. ホーム画面（グラフ＆ゲームステータス） -->
+  <div id="sec-home" class="app-section">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h2 id="home-welcome" style="font-size: 18px; margin: 0;">こんにちは</h2>
+      <button class="btn-secondary" style="width: auto; padding: 6px 12px; margin: 0; font-size: 12px;" onclick="logout()">ログアウト</button>
+    </div>
+    
+    <!-- ゲームステータスカード -->
+    <div class="status-card" style="margin-top: 15px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div>
+          <span class="level-badge" id="status-level">Lv.1</span>
+          <span class="title-badge" id="status-title">お金見習い</span>
+        </div>
+        <div id="status-xp-text" style="font-size: 12px; color: #495057; font-weight: bold;">0 / 50 XP</div>
+      </div>
+      <div class="xp-bar-container">
+        <div class="xp-bar-fill" id="status-xp-bar"></div>
+      </div>
+    </div>
+
+    <p id="home-birth-year" style="text-align: center; font-size: 12px; color: #868e96; margin: -5px 0 15px 0;"></p>
+    <div style="width: 200px; height: 200px; margin: 10px auto;">
+      <canvas id="ratioChart"></canvas>
+    </div>
+    <div id="home-current-wallet" style="text-align: center; font-size: 18px; font-weight: bold; color: #2b8a3e; margin-top: 10px;"></div>
+    <div id="home-summary" style="text-align: center; margin-top: 10px; font-size: 14px; color: #666;"></div>
+  </div>
+
+  <!-- 3. カレンダー画面 -->
+  <div id="sec-calendar" class="app-section">
+    <h2>2026年 7月</h2>
+    <div class="calendar-grid">
+      <div class="calendar-day-name">日</div><div class="calendar-day-name">月</div><div class="calendar-day-name">火</div>
+      <div class="calendar-day-name">水</div><div class="calendar-day-name">木</div><div class="calendar-day-name">金</div>
+      <div class="calendar-day-name">土</div>
+    </div>
+    <div id="calendar-days" class="calendar-grid"></div>
+  </div>
+
+  <!-- 4. 入力画面 -->
+  <div id="sec-input" class="app-section">
+    <h2>お財布に記録</h2>
+    <p id="target-date-display" style="text-align:center; font-weight:bold; color:#666;"></p>
+    
+    <input type="number" id="input-amount" placeholder="金額を入力 (円)">
+    
+    <div class="type-selectors" style="margin-bottom:15px;">
+      <button class="type-btn selected" data-val="支出" onclick="selectType('支出')">だしたお金</button>
+      <button class="type-btn" data-val="収入" onclick="selectType('収入')">はいったお金</button>
+    </div>
+
+    <div id="nw-wrapper" style="margin-bottom:15px;">
+      <label>どっちの種類？</label>
+      <div class="nw-selectors">
+        <button class="nw-btn" data-val="Needs" onclick="selectNW('Needs')">Needs (必要)</button>
+        <button class="nw-btn" data-val="Wants" onclick="selectNW('Wants')">Wants (欲しいもの)</button>
+      </div>
+    </div>
+
+    <div id="tag-wrapper" style="margin-bottom:15px; display:none;">
+      <label>何に使った？（1タップ選択）</label>
+      <div id="hobby-pool" class="hobby-pool"></div>
+      <input type="text" id="input-memo" placeholder="その他の内容" style="display:none;">
+    </div>
+
+    <button class="btn-primary" style="background:#2b8a3e;" onclick="saveTransaction()">保存して10XPゲット！</button>
+  </div>
+
+  <!-- 5. 管理者用画面（データ全閲覧＆ユーザー削除） -->
+  <div id="sec-admin" class="app-section">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h2>管理者ページ</h2>
+      <button class="btn-secondary" style="width: auto; padding: 6px 12px; margin: 0; font-size: 12px;" onclick="logout()">ログアウト</button>
+    </div>
+    <p style="font-size: 12px; color: #e03131; text-align: center; font-weight: bold;">すべてのユーザーデータを表示中</p>
+    
+    <div id="admin-user-list" style="margin-top: 15px;"></div>
+  </div>
+
+  <!-- フッターナビゲーション -->
+  <div id="app-nav" class="nav-bar" style="display:none;">
+    <div id="nav-home" class="nav-item" onclick="switchSection('home')">グラフ</div>
+    <div id="nav-calendar" class="nav-item" onclick="switchSection('calendar')">カレンダー</div>
+  </div>
+
+</div>
+
+<!-- Firebase SDK とメインロジック -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, where, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyByXtqiOBBHl8pJcOM8CDzta7n5fSv4OgI",
+    authDomain: "smart-management-6dee4.firebaseapp.com",
+    projectId: "smart-management-6dee4",
+    storageBucket: "smart-management-6dee4.firebasestorage.app",
+    messagingSenderId: "464761501009",
+    appId: "1:464761501009:web:b4b9d79412594d09054f70"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  let myUID = ""; 
+  let userAccount = null;
+  let transactionHistory = []; 
+  let selectedDate = "2026-07-10"; 
+  let currentType = "支出";
+  let currentNW = "";
+  let currentTag = "";
+  let chartInstance = null; 
+  let tempProfile = null;
+
+  // 累計必要XPの計算関数（レベルごとの必要XP増加ロジック）
+  function getRequiredTotalXp(level) {
+    if (level <= 1) return 0;
+    let total = 0;
+    for (let i = 1; i < level; i++) {
+      total += i * 50;
+    }
+    return total;
+  }
+
+  // 現在のXPからレベルを算出する関数
+  function calculateLevelFromXp(xp) {
+    let lvl = 1;
+    while (true) {
+      if (xp < getRequiredTotalXp(lvl + 1)) {
+        return lvl;
+      }
+      lvl++;
+    }
+  }
+
+  window.calculateBirthYear = function() {
+    const ageInput = document.getElementById('acc-age').value;
+    const displayInput = document.getElementById('acc-birthyear-display');
+    if(ageInput) {
+      displayInput.value = `${2026 - parseInt(ageInput)} 年生まれ`;
+    } else {
+      displayInput.value = "";
+    }
+  }
+
+  window.addEventListener('load', async () => {
+    const savedUID = localStorage.getItem('smart_consumer_uid');
+    if (savedUID) {
+      myUID = savedUID;
+      if (myUID === "ADMIN_USER") {
+        switchSection('admin');
+        loadAdminData();
+        return;
+      }
+      try {
+        const d = await getDoc(doc(db, "users", myUID));
+        if (d.exists()) {
+          userAccount = d.data();
+          if(userAccount.xp === undefined) { userAccount.xp = 0; userAccount.level = 1; }
+          
+          const q = query(collection(db, "users", myUID, "history"));
+          const querySnapshot = await getDocs(q);
+          transactionHistory = [];
+          querySnapshot.forEach((doc) => { transactionHistory.push(doc.data()); });
+          
+          document.getElementById('app-nav').style.display = 'flex';
+          switchSection('home');
+        } else {
+          switchSection('login');
+        }
+      } catch(e) {
+        switchSection('login');
+      }
+    }
+  });
+
+  window.switchSection = function(secName) {
+    document.querySelectorAll('.app-section').forEach(s => s.classList.remove('active'));
+    document.getElementById(`sec-${secName}`).classList.add('active');
+    
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active-nav'));
+    if(secName === 'home' || secName === 'calendar') {
+      document.getElementById(`nav-${secName}`).classList.add('active-nav');
+    }
+
+    if(secName === 'home') { updateHomeGraph(); }
+    if(secName === 'calendar') { renderCalendar(); }
+  }
+
+  window.login = async function() {
+    const user = document.getElementById('login-username').value.trim();
+    const pass = document.getElementById('login-password').value.trim();
+
+    if(!user || !pass) { alert("ユーザー名とパスワードを入力してください。"); return; }
+
+    if(user === "admin" && pass === "admin123") {
+      myUID = "ADMIN_USER";
+      localStorage.setItem('smart_consumer_uid', myUID);
+      switchSection('admin');
+      loadAdminData();
+      return;
+    }
+
+    try {
+      const q = query(collection(db, "users"), where("username", "==", user), where("password", "==", pass));
+      const querySnapshot = await getDocs(q);
+      
+      if(!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0];
+        myUID = userDoc.id;
+        userAccount = userDoc.data();
+        localStorage.setItem('smart_consumer_uid', myUID);
+
+        const hQ = query(collection(db, "users", myUID, "history"));
+        const hSnapshot = await getDocs(hQ);
+        transactionHistory = [];
+        hSnapshot.forEach((doc) => { transactionHistory.push(doc.data()); });
+
+        document.getElementById('app-nav').style.display = 'flex';
+        switchSection('home');
+      } else {
+        alert("ユーザーネームまたはパスワードが違います。");
+      }
+    } catch(e) {
+      alert("ログイン中にエラーが発生しました。");
+    }
+  }
+
+  window.logout = function() {
+    localStorage.removeItem('smart_consumer_uid');
+    userAccount = null;
+    transactionHistory = [];
+    document.getElementById('app-nav').style.display = 'none';
+    switchSection('login');
+  }
+
+  window.goToRegisterStep1 = function() {
+    switchSection('account-step1');
+  }
+
+  window.goToRegisterStep2 = function() {
+    const name = document.getElementById('acc-name').value;
+    const age = parseInt(document.getElementById('acc-age').value);
+    const initBalance = parseInt(document.getElementById('acc-balance').value) || 0;
+
+    if(!name || !age) { alert('名前と年齢を入力してください。'); return; }
+
+    const checkedHobbies = [];
+    document.querySelectorAll('.hobby-cb:checked').forEach(cb => {
+      checkedHobbies.push(cb.value);
+    });
+
+    tempProfile = {
+      name: name,
+      age: age,
+      birthYear: 2026 - age,
+      initialBalance: initBalance,
+      hobbies: checkedHobbies,
+      xp: 0,
+      level: 1
+    };
+
+    switchSection('account-step2');
+  }
+
+  window.registerAccount = async function() {
+    const user = document.getElementById('acc-username').value.trim();
+    const pass = document.getElementById('acc-password').value.trim();
+
+    if(!user || !pass) { alert('ユーザーネームとパスワードを決めてください。'); return; }
+
+    const checkQ = query(collection(db, "users"), where("username", "==", user));
+    const checkSnapshot = await getDocs(checkQ);
+    if(!checkSnapshot.empty || user === "admin") {
+      alert("そのユーザーネームは既に使われています。別の名名前してください。");
+      return;
+    }
+
+    userAccount = {
+      ...tempProfile,
+      username: user,
+      password: pass
+    };
+
+    myUID = "user_" + Math.random().toString(36).substring(2, 11);
+
+    try {
+      await setDoc(doc(db, "users", myUID), userAccount);
+      localStorage.setItem('smart_consumer_uid', myUID);
+      document.getElementById('app-nav').style.display = 'flex';
+      switchSection('home');
+    } catch(e) {
+      alert("アカウント作成に失敗しました。");
+    }
+  }
+
+  async function loadAdminData() {
+    const listDiv = document.getElementById('admin-user-list');
+    listDiv.innerHTML = "読み込み中...";
+
+    try {
+      const usersSnapshot = await getDocs(collection(db, "users"));
+      listDiv.innerHTML = "";
+
+      for (const uDoc of usersSnapshot.docs) {
+        const uData = uDoc.data();
+        if(uData.username === "admin") continue;
+
+        const targetUID = uDoc.id;
+        const histSnapshot = await getDocs(collection(db, "users", targetUID, "history"));
+        let histHTML = "";
+        histSnapshot.forEach(hDoc => {
+          const h = hDoc.data();
+          histHTML += `<li>${h.date} | [${h.type}] ${h.category || ''} (${h.tag || ''}) : <strong>${h.amount}円</strong></li>`;
+        });
+
+        const userCard = document.createElement('div');
+        userCard.classList.add('admin-user-card');
+        userCard.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <h3 style="margin: 0 0 5px 0;">${uData.name}さん (${uData.age}歳)</h3>
+            <button class="btn-danger" style="width: auto; padding: 4px 10px; font-size: 11px; margin: 0;" onclick="deleteUserAccount('${targetUID}', '${uData.name}')">
+              アカウント削除
+            </button>
+          </div>
+          <p style="font-size:12px; color:#666; margin:0;">
+            ユーザーID: ${targetUID}<br>
+            ログインID: <strong>${uData.username}</strong> / パスワード: <strong>${uData.password}</strong><br>
+            レベル: Lv.${uData.level || 1} (${uData.xp || 0} XP) | 初期所持金: ${uData.initialBalance}円
+          </p>
+          <h4 style="margin: 10px 0 5px 0; font-size:13px;">家計簿記録一覧:</h4>
+          <ul style="font-size:12px; padding-left:20px; margin:0;">
+            ${histHTML ? histHTML : '<span style="color:#ae3ec9;">記録なし</span>'}
+          </ul>
+        `;
+        listDiv.appendChild(userCard);
+      }
+    } catch(e) {
+      listDiv.innerHTML = "データの取得に失敗しました。";
+    }
+  }
+
+  // 管理者によるアカウント・関連家計簿データ全削除機能
+  window.deleteUserAccount = async function(targetUID, userName) {
+    const confirmDelete = confirm(`【注意】本当に「${userName}」さんのアカウントと家計簿データをすべて削除しますか？\n（この操作は元に戻せません）`);
+    if (!confirmDelete) return;
+
+    try {
+      const batch = writeBatch(db);
+
+      // 1. サブコレクション「history」内のドキュメントをすべて削除リストに追加
+      const histSnapshot = await getDocs(collection(db, "users", targetUID, "history"));
+      histSnapshot.forEach(hDoc => {
+        batch.delete(hDoc.ref);
+      });
+
+      // 2. ユーザーのアカウント情報ドキュメントを削除リストに追加
+      const userRef = doc(db, "users", targetUID);
+      batch.delete(userRef);
+
+      // 3. 削除を一括実行（コミット）
+      await batch.commit();
+
+      alert(`「${userName}」さんのデータをすべて正常に削除しました。`);
+      // 管理者データを再読み込みして画面を更新
+      loadAdminData();
+    } catch(e) {
+      console.error(e);
+      alert("データの削除処理中にエラーが発生しました。");
+    }
+  }
+
+  const titles = ["お買い物見習い", "買い物の達人", "お小遣いマスター", "賢い消費者"];
+  function getTitle(lvl) {
+    if (lvl >= 4) return titles[3];
+    return titles[lvl - 1] || titles[0];
+  }
+
+  function updateHomeGraph() {
+    if(!userAccount) return;
+    document.getElementById('home-welcome').innerText = `こんにちは、${userAccount.name}さん (${userAccount.age}歳)`;
+    document.getElementById('home-birth-year').innerText = `${userAccount.birthYear}年生まれ`;
+
+    const currentLvl = userAccount.level || 1;
+    const currentXp = userAccount.xp || 0;
+
+    // 現在のレベル帯での必要XPと現在地の計算
+    const baseTotalXp = getRequiredTotalXp(currentLvl);
+    const nextTotalXp = getRequiredTotalXp(currentLvl + 1);
+    const xpNeededForThisLvl = nextTotalXp - baseTotalXp;
+    const xpInThisLvl = currentXp - baseTotalXp;
+    const xpPercent = Math.min((xpInThisLvl / xpNeededForThisLvl) * 100, 100);
+
+    document.getElementById('status-level').innerText = `Lv.${currentLvl}`;
+    document.getElementById('status-title').innerText = getTitle(currentLvl);
+    document.getElementById('status-xp-text').innerText = `${xpInThisLvl} / ${xpNeededForThisLvl} XP`;
+    
+    setTimeout(() => {
+      document.getElementById('status-xp-bar').style.width = `${xpPercent}%`;
+    }, 100);
+
+    let needsSum = 0; let wantsSum = 0; let incomeSum = 0;
+    
+    transactionHistory.forEach(item => {
+      if(item.type === '収入') incomeSum += item.amount;
+      else if(item.category === 'Needs') needsSum += item.amount;
+      else if(item.category === 'Wants') wantsSum += item.amount;
+    });
+
+    let currentWallet = userAccount.initialBalance + incomeSum - (needsSum + wantsSum);
+    document.getElementById('home-current-wallet').innerText = `いまのお財布：${currentWallet} 円`;
+    document.getElementById('home-summary').innerHTML = `Needs: ${needsSum}円 / Wants: ${wantsSum}円`;
+
+    const ctx = document.getElementById('ratioChart').getContext('2d');
+    if (chartInstance) { chartInstance.destroy(); } 
+    
+    if(needsSum === 0 && wantsSum === 0) {
+      chartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels: ['データなし'], datasets: [{ data: [1], backgroundColor: ['#e9ecef'] }] }
+      });
+      return;
+    }
+
+    chartInstance = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Needs', 'Wants'],
+        datasets: [{ data: [needsSum, wantsSum], backgroundColor: ['#339af0', '#fa5252'] }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+  }
+
+  function renderCalendar() {
+    const container = document.getElementById('calendar-days');
+    container.innerHTML = '';
+    const startDayOffset = 3; 
+    const totalDays = 31;
+    
+    for(let i=0; i<startDayOffset; i++) {
+      let emptyDiv = document.createElement('div');
+      container.appendChild(emptyDiv);
+    }
+    
+    for(let day=1; day<=totalDays; day++) {
+      let dayString = `2026-07-${day.toString().padStart(2, '0')}`;
+      let dayDiv = document.createElement('div');
+      dayDiv.classList.add('calendar-day');
+      dayDiv.innerText = day;
+      
+      let dayNeeds = 0; let dayWants = 0;
+      transactionHistory.forEach(h => {
+        if(h.date === dayString && h.type === '支出') {
+          if(h.category === 'Needs') dayNeeds += h.amount;
+          if(h.category === 'Wants') dayWants += h.amount;
+        }
+      });
+      
+      if(dayNeeds > 0 && dayWants === 0) dayDiv.classList.add('bg-needs');
+      else if(dayWants > 0 && dayNeeds === 0) dayDiv.classList.add('bg-wants');
+      else if(dayNeeds > 0 && dayWants > 0) dayDiv.classList.add('bg-both');
+      
+      dayDiv.onclick = () => {
+        selectedDate = dayString;
+        openInputScreen();
+      };
+      
+      container.appendChild(dayDiv);
+    }
+  }
+
+  function openInputScreen() {
+    document.getElementById('target-date-display').innerText = `${selectedDate} の記録`;
+    document.getElementById('input-amount').value = '';
+    document.getElementById('input-memo').value = '';
+    selectType('支出');
+    selectNW('');
+    switchSection('input');
+  }
+
+  window.selectType = function(type) {
+    currentType = type;
+    document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
+    document.querySelector(`.type-btn[data-val="${type}"]`).classList.add('selected');
+    
+    if(type === '収入') {
+      document.getElementById('nw-wrapper').style.display = 'none';
+      document.getElementById('tag-wrapper').style.display = 'none';
+      currentNW = 'Income';
+      currentTag = '収入';
+    } else {
+      document.getElementById('nw-wrapper').style.display = 'block';
+      selectNW('');
+    }
+  }
+
+  window.selectNW = function(nw) {
+    currentNW = nw;
+    document.querySelectorAll('.nw-btn').forEach(b => b.classList.remove('selected'));
+    const btn = document.querySelector(`.nw-btn[data-val="${nw}"]`);
+    if(btn) btn.classList.add('selected');
+    
+    const tagWrapper = document.getElementById('tag-wrapper');
+    if(nw === 'Wants') {
+      tagWrapper.style.display = 'block';
+      buildHobbyButtons(); 
+    } else {
+      tagWrapper.style.display = 'none';
+      currentTag = 'Needs'; 
+    }
+  }
+
+  function buildHobbyButtons() {
+    const pool = document.getElementById('hobby-pool');
+    pool.innerHTML = '';
+    
+    if (userAccount && userAccount.hobbies) {
+      userAccount.hobbies.forEach(hobby => {
+        let btn = document.createElement('button');
+        btn.classList.add('tag-btn');
+        btn.innerText = hobby;
+        btn.onclick = () => selectTag(hobby, btn);
+        pool.appendChild(btn);
+      });
+    }
+    
+    let otherBtn = document.createElement('button');
+    otherBtn.classList.add('tag-btn');
+    otherBtn.innerText = 'その他';
+    otherBtn.onclick = () => selectTag('unknown', otherBtn);
+    pool.appendChild(otherBtn);
+  }
+
+  function selectTag(tag, element) {
+    currentTag = tag;
+    document.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('selected'));
+    element.classList.add('selected');
+    
+    const memoInput = document.getElementById('input-memo');
+    if(tag === 'unknown') {
+      memoInput.style.display = 'block';
+    } else {
+      memoInput.style.display = 'none';
+    }
+  }
+
+  function triggerLevelUpEffects(oldLvl, newLvl) {
+    document.getElementById('levelup-text').innerText = `Lv.${oldLvl} → Lv.${newLvl}`;
+    document.getElementById('levelup-title-text').innerText = `新しい称号：${getTitle(newLvl)}`;
+    const overlay = document.getElementById('levelup-overlay');
+    overlay.classList.add('show');
+    for (let i = 0; i < 30; i++) { createSparkle(overlay); }
+  }
+
+  function createSparkle(parent) {
+    const el = document.createElement('div');
+    el.classList.add('sparkle');
+    const colors = ['#ffd43b', '#4dabf7', '#ff8787', '#69db7c', '#da77f2'];
+    el.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    parent.appendChild(el);
+
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 50 + Math.random() * 150;
+    const x = Math.cos(angle) * distance;
+    const y = Math.sin(angle) * distance;
+
+    el.style.left = '50%'; el.style.top = '50%';
+    el.style.transform = 'translate(-50%, -50%)';
+
+    const anim = el.animate([
+      { transform: 'translate(-50%, -50%) scale(0) rotate(0deg)', opacity: 0 },
+      { transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) scale(1.5) rotate(${Math.random() * 360}deg)`, opacity: 1, offset: 0.2 },
+      { transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) scale(0) rotate(${Math.random() * 720}deg)`, opacity: 0 }
+    ], { duration: 1200 + Math.random() * 800, easing: 'cubic-bezier(0.1, 0.8, 0.3, 1)' });
+
+    anim.onfinish = () => el.remove();
+  }
+
+  window.closeLevelUp = function() {
+    document.getElementById('levelup-overlay').classList.remove('show');
+  }
+
+  window.saveTransaction = async function() {
+    const amount = parseInt(document.getElementById('input-amount').value);
+    if(!amount || amount <= 0) { alert('金額を入力してください。'); return; }
+    if(currentType === '支出' && !currentNW) { alert('NeedsかWantsか選んでください。'); return; }
+    if(currentNW === 'Wants' && !currentTag) { alert('何に使ったか選んでください。'); return; }
+    
+    const memo = document.getElementById('input-memo').value;
+    const newRecord = {
+      date: selectedDate,
+      type: currentType,
+      category: currentNW,
+      tag: currentTag,
+      amount: amount,
+      memo: memo,
+      createdAt: new Date().toISOString()
+    };
+
+    const oldXp = userAccount.xp || 0;
+    const newXp = oldXp + 10;
+    const oldLvl = userAccount.level || 1;
+    
+    // 計算されたレベルを新規XPから割り出す
+    const newLvl = calculateLevelFromXp(newXp);
+
+    userAccount.xp = newXp;
+    userAccount.level = newLvl;
+
+    try {
+      await addDoc(collection(db, "users", myUID, "history"), newRecord);
+      await setDoc(doc(db, "users", myUID), userAccount);
+      transactionHistory.push(newRecord);
+
+      if(newLvl > oldLvl) {
+        triggerLevelUpEffects(oldLvl, newLvl);
+      }
+      switchSection('home');
+    } catch(e) {
+      alert("データの保存に失敗しました。");
+    }
+  }
+</script>
+
+</body>
+</html>
